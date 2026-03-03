@@ -228,7 +228,10 @@ function getContentBlocksFromMessage(msg, toolNameMap = new Map()) {
           });
         } else if (part.type === "tool_use") {
           // Tool name already has prefix from tool declarations, keep as-is
-          blocks.push({ type: "tool_use", id: part.id, name: part.name, input: part.input });
+          // CRITICAL: Skip tool_use blocks with empty name (causes Claude 400 error)
+          if (part.name && part.name.trim()) {
+            blocks.push({ type: "tool_use", id: part.id, name: part.name, input: part.input });
+          }
         }
       }
     } else if (msg.content) {
@@ -241,8 +244,12 @@ function getContentBlocksFromMessage(msg, toolNameMap = new Map()) {
     if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
       for (const tc of msg.tool_calls) {
         if (tc.type === "function") {
+          // CRITICAL: Skip tool_calls with empty function name (causes Claude 400 error)
+          const fnName = tc.function?.name;
+          if (!fnName || !fnName.trim()) continue;
+
           // Apply prefix to tool name
-          const toolName = CLAUDE_OAUTH_TOOL_PREFIX + tc.function.name;
+          const toolName = CLAUDE_OAUTH_TOOL_PREFIX + fnName;
           blocks.push({
             type: "tool_use",
             id: tc.id,
